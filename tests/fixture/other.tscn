@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Resource" path="res://addons/gmorn_build_scenes/tests/fixture/shared.tres" id="1_shared"]
+
+[node name="Other" type="Node"]
+metadata/shared = ExtResource("1_shared")

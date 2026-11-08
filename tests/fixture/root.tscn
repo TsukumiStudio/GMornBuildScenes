@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://addons/gmorn_build_scenes/tests/fixture/root.gd" id="1_root"]
+[ext_resource type="Script" path="res://addons/gmorn_build_scenes/build_dependencies.gd" id="2_deps"]
+[ext_resource type="JSON" path="res://addons/gmorn_build_scenes/tests/fixture/data.json" id="3_data"]
+[ext_resource type="Resource" path="res://addons/gmorn_build_scenes/tests/fixture/typed.tres" id="4_typed"]
+[ext_resource type="Script" path="res://addons/gmorn_build_scenes/tests/fixture/allowed.gd" id="5_allowed"]
+[ext_resource type="Resource" path="res://addons/gmorn_build_scenes/tests/fixture/chain_a.tres" id="6_chain"]
+
+[node name="Root" type="Node"]
+script = ExtResource("1_root")
+
+[node name="BuildDependencies" type="Node" parent="."]
+script = ExtResource("2_deps")
+resources = Array[Resource]([ExtResource("3_data"), ExtResource("4_typed"), ExtResource("5_allowed"), ExtResource("6_chain")])

@@ -1,0 +1,6 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Resource" path="res://addons/gmorn_build_scenes/tests/fixture/chain_b.tres" id="1_next"]
+
+[resource]
+metadata/next = ExtResource("1_next")

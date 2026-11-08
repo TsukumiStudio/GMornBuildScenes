@@ -1,0 +1,8 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://addons/gmorn_build_scenes/build_profile.gd" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+feature = "verify_broken"
+root_scenes = Array[String](["res://addons/gmorn_build_scenes/tests/fixture/root.tscn"])

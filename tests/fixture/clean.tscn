@@ -1,0 +1,13 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://addons/gmorn_build_scenes/tests/fixture/clean.gd" id="1_clean"]
+[ext_resource type="Script" path="res://addons/gmorn_build_scenes/build_dependencies.gd" id="2_deps"]
+[ext_resource type="JSON" path="res://addons/gmorn_build_scenes/tests/fixture/clean.json" id="3_data"]
+[ext_resource type="Resource" path="res://addons/gmorn_build_scenes/tests/fixture/shared.tres" id="4_shared"]
+
+[node name="Clean" type="Node"]
+script = ExtResource("1_clean")
+
+[node name="BuildDependencies" type="Node" parent="."]
+script = ExtResource("2_deps")
+resources = Array[Resource]([ExtResource("3_data"), ExtResource("4_shared")])
