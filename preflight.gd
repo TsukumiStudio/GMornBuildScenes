@@ -2,8 +2,9 @@ extends SceneTree
 ## 書き出しの前の検査。書き出しと同じ閉包と検査を走らせ、失敗なら 1 で終わる。
 ##   godot --headless --path . --script res://addons/gmorn_build_scenes/preflight.gd -- --preset=<export_presets.cfg の name>
 ## 機能タグを直接渡すときは --features=a,b。
-## --export-release=<出力先> (または --export-debug= / --export-pack=) を足すと、検査に通ったあと続けて書き出し、
-## 書き出しの終了コードで終わる。このとき閉包の外のスクリプトを preset の exclude_filter に一時的に足す。
+## --export-release=<出力先> (または --export-debug / --export-pack) を足すと、検査に通ったあと続けて書き出し、
+## 書き出しの終了コードで終わる。出力先を省くと preset の export_path に書く。
+## このとき閉包の外のスクリプトを preset の exclude_filter に一時的に足す。
 ## Godot 4.7 はスクリプトを EditorExportPlugin に渡さずに書き出すので、プラグインでは外せないため。
 ## export_presets.cfg は書き出しが終わったら元の内容に戻す。
 const BuildClosure := preload("build_closure.gd")
@@ -24,9 +25,9 @@ func _initialize() -> void:
 			preset = arg.trim_prefix("--preset=")
 			features = _preset_features(preset)
 		for mode: String in EXPORT_MODES:
-			if arg.begins_with(mode + "="):
+			if arg == mode or arg.begins_with(mode + "="):
 				export_mode = mode
-				export_path = arg.trim_prefix(mode + "=")
+				export_path = arg.trim_prefix(mode).trim_prefix("=")
 	var result := BuildClosure.for_export(features)
 	for message: String in result.errors:
 		printerr("GMornBuildScenes: " + message)
@@ -57,7 +58,10 @@ func _export(preset: String, mode: String, path: String, scripts: PackedStringAr
 	_write(PRESETS, excluded)
 	print("GMornBuildScenes: 閉包の外のスクリプト %d 本を外して書き出す" % scripts.size())
 	var output: Array = []
-	var code := OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"), mode, preset, path], output, true)
+	var arguments := PackedStringArray(["--headless", "--path", ProjectSettings.globalize_path("res://"), mode, preset])
+	if not path.is_empty():
+		arguments.append(path)
+	var code := OS.execute(OS.get_executable_path(), arguments, output, true)
 	_write(PRESETS, original)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(BACKUP))
 	print("".join(output))

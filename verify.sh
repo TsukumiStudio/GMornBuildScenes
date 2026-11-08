@@ -60,7 +60,7 @@ PRESET
 # $1 プロジェクト, $2 preset 名, $3 出力先。preflight 経由で書き出し、export_presets.cfg が元に戻ることも確かめる。
 export_through_preflight() {
 	cp "$1/export_presets.cfg" "$1/export_presets.before"
-	"$godot" --headless --path "$1" --script "res://$addon/preflight.gd" -- --preset="$2" --export-pack="$3" > "$1/export.log" 2>&1 \
+	"$godot" --headless --path "$1" --script "res://$addon/preflight.gd" -- --preset="$2" "--export-pack${3:+=$3}" > "$1/export.log" 2>&1 \
 		|| { cat "$1/export.log"; fail "$2 の書き出しに失敗"; }
 	cmp -s "$1/export_presets.cfg" "$1/export_presets.before" || fail "$2: 書き出しのあと export_presets.cfg が元に戻っていない"
 	[ ! -e "$1/export_presets.cfg.gmorn_build_scenes_backup" ] || fail "$2: export_presets.cfg のバックアップが残った"
@@ -131,6 +131,11 @@ func _initialize() -> void:
 	quit(0)
 CHECK
 run_pack "$root/a.pck" "$root/check_a.gd"
+# 出力先を省くと preset の export_path に書く。
+awk -v target="$root/a_preset.pck" '!done && $0 == "export_path=\"\"" { print "export_path=\"" target "\""; done = 1; next } { print }' \
+	"$a/export_presets.cfg" > "$a/export_presets.tmp" && mv "$a/export_presets.tmp" "$a/export_presets.cfg"
+export_through_preflight "$a" Demo ""
+[ -s "$root/a_preset.pck" ] || fail "A: 出力先を省いた書き出しが preset の export_path に書かれない"
 "$godot" --headless --path "$a" --export-pack Broken "$root/broken.pck" > "$a/broken.log" 2>&1 || true
 [ ! -e "$root/broken.pck" ] || fail "A: 検査に失敗した書き出しの成果物が残った"
 grep -q "検査に失敗したので" "$a/broken.log" || fail "A: 検査に失敗した書き出しがエラーを出さない"
