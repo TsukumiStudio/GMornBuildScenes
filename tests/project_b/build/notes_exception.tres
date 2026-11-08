@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://{{ADDON}}/path_access_exception.gd" id="1_exception"]
+
+[resource]
+script = ExtResource("1_exception")
+script_path = "res://levels/level_1.gd"
+code = "return FileAccess.get_file_as_string(NOTES)"
+reason = "型を持たない生のテキストを読む"
