@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[ext_resource type="Resource" path="res://levels/level_2_only.tres" id="1_only"]
+[ext_resource type="Resource" path="res://shared/tile.tres" id="2_tile"]
+
+[node name="Level2" type="Node2D"]
+metadata/only = ExtResource("1_only")
+metadata/tile = ExtResource("2_tile")

@@ -2,33 +2,32 @@ extends RefCounted
 ## 実行時と書き出しで共通: どのビルドプロファイルが有効か、どのルートシーンが収録されているか。
 const SETTING_PROFILES := "gmorn_build_scenes/profiles"
 
-## project settings の gmorn_build_scenes/profiles に並べた profile。
+## プロジェクト設定 gmorn_build_scenes/profiles に並べたパス。
+static func profile_paths() -> PackedStringArray:
+	return ProjectSettings.get_setting(SETTING_PROFILES, PackedStringArray())
+
+## 読めるプロファイル。書き出しには選ばれたプロファイルだけが入るので、無いファイルは飛ばす。
 static func profiles() -> Array[Resource]:
 	var result: Array[Resource] = []
-	if not ProjectSettings.has_setting(SETTING_PROFILES):
-		return result
-	for path: String in ProjectSettings.get_setting(SETTING_PROFILES):
-		# 書き出しには選ばれた profile だけが入る。
-		if not ResourceLoader.exists(path):
-			continue
-		var profile := load(path) as Resource # build_scenes: allow profile の一覧は project settings が持つ
-		if profile == null:
-			push_error("GMornBuildScenes: profile が読めない: " + path)
-			continue
-		result.append(profile)
+	for path: String in profile_paths():
+		if ResourceLoader.exists(path):
+			result.append(load(path)) # build_scenes: allow プロファイルの一覧はプロジェクト設定が持つ
 	return result
 
-## features のどれかを feature に持つ profile。無ければ null (全部入りの通常の書き出し)。
-static func for_features(features: PackedStringArray) -> Resource:
-	var found: Resource = null
+## 機能タグのどれかを feature に持つプロファイル。
+static func matching(features: PackedStringArray) -> Array[Resource]:
+	var result: Array[Resource] = []
 	for profile: Resource in profiles():
 		if not str(profile.feature).is_empty() and features.has(profile.feature):
-			if found != null:
-				push_error("GMornBuildScenes: 機能タグが2つの profile に当たる: %s, %s" % [found.resource_path, profile.resource_path])
-			found = profile
-	return found
+			result.append(profile)
+	return result
 
-## 実行中の書き出しの profile。Editor から実行したときは null。
+## 機能タグにちょうど1つ当たるプロファイル。当たらないか複数なら null。
+static func for_features(features: PackedStringArray) -> Resource:
+	var found := matching(features)
+	return found[0] if found.size() == 1 else null
+
+## 実行中の書き出しのプロファイル。Editor から実行したときは null (全部入り)。
 static func active() -> Resource:
 	for profile: Resource in profiles():
 		if not str(profile.feature).is_empty() and OS.has_feature(profile.feature):
@@ -48,7 +47,7 @@ static func root_scenes(profile: Resource) -> PackedStringArray:
 		result.append(normalize(path))
 	return result
 
-## profile が null (全部入り) なら常に true。
+## プロファイルが null (全部入り) なら常に true。
 static func has_root(path: String, profile: Resource = active()) -> bool:
 	return profile == null or root_scenes(profile).has(normalize(path))
 
