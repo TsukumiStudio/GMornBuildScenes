@@ -57,6 +57,15 @@ binary_format/embed_pck=false
 PRESET
 }
 
+# $1 プロジェクト, $2 preset 名, $3 出力先。preflight 経由で書き出し、export_presets.cfg が元に戻ることも確かめる。
+export_through_preflight() {
+	cp "$1/export_presets.cfg" "$1/export_presets.before"
+	"$godot" --headless --path "$1" --script "res://$addon/preflight.gd" -- --preset="$2" "--export-pack${3:+=$3}" > "$1/export.log" 2>&1 \
+		|| { cat "$1/export.log"; fail "$2 の書き出しに失敗"; }
+	cmp -s "$1/export_presets.cfg" "$1/export_presets.before" || fail "$2: 書き出しのあと export_presets.cfg が元に戻っていない"
+	[ ! -e "$1/export_presets.cfg.gmorn_build_scenes_backup" ] || fail "$2: export_presets.cfg のバックアップが残った"
+}
+
 # $1 pack, $2 確かめるスクリプト。pack だけで動かす (プロジェクトのフォルダーを読ませない)。
 run_pack() {
 	empty=$(mktemp -d "$root/run.XXXXXX")
@@ -104,14 +113,15 @@ preflight "$a" verify_demo 1
 grep -q "missing_profile.tres が見つからない" "$a/preflight.log" || fail "設定にある無いプロファイルを止めない"
 mv "$a/project.godot.bak" "$a/project.godot"
 
-"$godot" --headless --path "$a" --export-pack Demo "$root/a.pck" > "$a/export.log" 2>&1
+export_through_preflight "$a" Demo "$root/a.pck"
 [ -s "$root/a.pck" ] || fail "A: 検査を通る書き出しの成果物が無い"
 cat > "$root/check_a.gd" <<'CHECK'
 extends SceneTree
 func _initialize() -> void:
 	var dir := "res://addons/gmorn_build_scenes/tests/fixture/"
 	var present := ["clean.tscn", "clean.json", "shared.tres", "clean.gd", "helper.gd"]
-	var absent := ["root.tscn", "other.tscn", "untyped.tres", "dynamic.tres", "chain_a.tres", "profile_broken.tres"]
+	var absent := ["root.tscn", "other.tscn", "untyped.tres", "dynamic.tres", "chain_a.tres", "profile_broken.tres",
+		"root.gd", "allowed.gd", "cycle_a.gd", "cycle_b.gd"]
 	var wrong := present.filter(func(name: String) -> bool: return not FileAccess.file_exists(dir + name) and not ResourceLoader.exists(dir + name))
 	wrong.append_array(absent.filter(func(name: String) -> bool: return FileAccess.file_exists(dir + name) or ResourceLoader.exists(dir + name)))
 	if not wrong.is_empty():
@@ -121,6 +131,11 @@ func _initialize() -> void:
 	quit(0)
 CHECK
 run_pack "$root/a.pck" "$root/check_a.gd"
+# 出力先を省くと preset の export_path に書く。
+awk -v target="$root/a_preset.pck" '!done && $0 == "export_path=\"\"" { print "export_path=\"" target "\""; done = 1; next } { print }' \
+	"$a/export_presets.cfg" > "$a/export_presets.tmp" && mv "$a/export_presets.tmp" "$a/export_presets.cfg"
+export_through_preflight "$a" Demo ""
+[ -s "$root/a_preset.pck" ] || fail "A: 出力先を省いた書き出しが preset の export_path に書かれない"
 "$godot" --headless --path "$a" --export-pack Broken "$root/broken.pck" > "$a/broken.log" 2>&1 || true
 [ ! -e "$root/broken.pck" ] || fail "A: 検査に失敗した書き出しの成果物が残った"
 grep -q "検査に失敗したので" "$a/broken.log" || fail "A: 検査に失敗した書き出しがエラーを出さない"
@@ -137,15 +152,16 @@ mv "$b/project.godot.in" "$b/project.godot"
 write_preset "$b" Level1 level_1 0
 import_project "$b"
 preflight "$b" level_1 0
-"$godot" --headless --path "$b" --export-pack Level1 "$root/b.pck" > "$b/export.log" 2>&1
+export_through_preflight "$b" Level1 "$root/b.pck"
 [ -s "$root/b.pck" ] || fail "B: 書き出しの成果物が無い"
 cat > "$root/check_b.gd" <<'CHECK'
 extends SceneTree
 func _initialize() -> void:
-	var present := ["main.tscn", "main.gd", "lib/greeter.gd", "autoload/settings.gd", "levels/level_1.tscn", "levels/level_1.gd",
+	var present := ["main.tscn", "main.gd", "lib/greeter.gd", "lib/base_greeter.gd", "autoload/settings.gd", "levels/level_1.tscn", "levels/level_1.gd",
 		"shared/tile.tres", "shared/water.tres", "shaders/water.gdshader", "shaders/common.gdshaderinc", "data/notes.txt", "lib/greeting.tres",
 		"addons/vendor/build_scenes/build_scenes.gd", "addons/vendor/build_scenes/build_assets.gd"]
-	var absent := ["levels/level_2.tscn", "levels/level_2_only.tres"]
+	var absent := ["levels/level_2.tscn", "levels/level_2_only.tres", "lib/unused.gd", "lib/orphan.gd",
+		"addons/vendor/build_scenes/preflight.gd", "addons/vendor/build_scenes/export_plugin.gd"]
 	var wrong := present.filter(func(name: String) -> bool: return not FileAccess.file_exists("res://" + name) and not ResourceLoader.exists("res://" + name))
 	wrong.append_array(absent.filter(func(name: String) -> bool: return FileAccess.file_exists("res://" + name) or ResourceLoader.exists("res://" + name)))
 	if not wrong.is_empty():
@@ -155,6 +171,11 @@ func _initialize() -> void:
 	quit(0)
 CHECK
 run_pack "$root/b.pck" "$root/check_b.gd"
+touch "$b/export_presets.cfg.gmorn_build_scenes_backup"
+code=0
+"$godot" --headless --path "$b" --script "res://$addon/preflight.gd" -- --preset=Level1 --export-pack="$root/b2.pck" > "$b/backup.log" 2>&1 || code=$?
+[ "$code" = 1 ] && [ ! -e "$root/b2.pck" ] || fail "B: 前の書き出しのバックアップが残っているのに書き出した"
+rm "$b/export_presets.cfg.gmorn_build_scenes_backup"
 run_pack "$root/b.pck"
 grep -q "project_b: hello" "$root/b.pck.log" && grep -q "project_b: started Level1 tile" "$root/b.pck.log" || { cat "$root/b.pck.log"; fail "B: pack の main scene が最後まで動かない"; }
 echo "verify: ok"

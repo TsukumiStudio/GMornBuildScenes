@@ -15,7 +15,7 @@ git submodule add https://github.com/TsukumiStudio/GMornBuildScenes.git addons/g
 
 置き場所は `addons/` の下ならどこでもよい (アドオン内の参照はすべて相対パス)。clone し直した人は `git submodule update --init --recursive`、新しい版へ上げるときは `git submodule update --remote addons/gmorn_build_scenes` を使う。`.gitmodules` のこの submodule に `ignore = untracked` を書いておくと、Godot が生成する `.uid` で親リポジトリの状態が汚れない。
 
-続けて Project Settings → Plugins で GMornBuildScenes を有効にする。あとは 2 章のとおりプロファイルを作り、5 章の preflight が 0 で終わることを確かめれば導入は終わる。
+続けて Project Settings → Plugins で GMornBuildScenes を有効にする。あとは 2 章のとおりプロファイルを作り、5 章の preflight で書き出せれば導入は終わる。
 
 ## 2. プロファイルはインスペクタで作る
 
@@ -69,16 +69,19 @@ func _ready() -> void:
 
 閉包の中のファイルに書かれた `res://` の文字列も検査する。指す素材が書き出しに入らないなら止める。ただし、どこにも無いファイル名 (書式文字列や元データの記録) とフォルダーは見ない。Resource でない生のファイル (`.txt`、`importer="keep"` の `.csv` など) は文字列でしか名指せないので、閉包の中の文字列が名指せば書き出しに入れる。
 
-## 5. CI と CLI では書き出しの前に必ず preflight を走らせる
+## 5. CI と CLI では preflight に書き出しまで任せる
 
 ```sh
-godot --headless --path . --script res://addons/gmorn_build_scenes/preflight.gd -- --preset="Web"
-godot --headless --path . --export-release "Web" build/web/index.html
+godot --headless --path . --script res://addons/gmorn_build_scenes/preflight.gd -- --preset="Web" --export-release=build/web/index.html
 ```
 
-`--preset` には `export_presets.cfg` の `name` を渡す。機能タグを直接渡すなら `--features=demo` と書く。検査に通れば、プロファイルと書き出すファイル数を出して 0 で終わる。通らなければ理由を出して 1 で終わる。
+`--preset` には `export_presets.cfg` の `name` を渡す。preflight はまず検査を走らせ、通らなければ理由を出して 1 で終わる。通れば続けて Godot の書き出しを起動し、その終了コードで終わる。
 
-**preflight を飛ばして直接書き出すと、検査に失敗しても終了コードは 0 になる。** Godot の書き出しプラグインには、書き出しを失敗させる手段がない。プラグインにできるのは、エラーを出し、ファイルを何も入れず、最後に成果物 (書き出し先と、その横の `.pck`) を消すところまで。CI で終了コードを頼りに止めたいなら preflight が要る。
+書き出しの指定は `--export-release`・`--export-debug`・`--export-pack` のどれか。`=出力先` を省くと preset の `export_path` に書く。検査だけしたいときは書き出しの指定を外し、機能タグを直接渡すなら `--features=demo` と書く。
+
+**閉包の外のスクリプトが外れるのは、この経路で書き出したときだけ。** Godot 4.7 はスクリプト (`.gd`) を書き出しプラグインに渡さずに書き出すので、プラグインでは外せない。そこで preflight が、閉包の外のスクリプトをその preset の `exclude_filter` に一時的に足してから書き出す。`export_presets.cfg` は書き出しが終わると元の内容に戻る。途中でプロセスが止まると `export_presets.cfg.gmorn_build_scenes_backup` に元の内容が残り、次の preflight は書き出しを拒む。中身を見比べて戻してから、このファイルを消す。
+
+**preflight を通さずに直接書き出すと、検査に失敗しても終了コードは 0 になり、閉包の外のスクリプトも入る。** Godot の書き出しプラグインには、書き出しを失敗させる手段がない。プラグインにできるのは、エラーを出し、ファイルを何も入れず、最後に成果物 (書き出し先と、その横の `.pck`) を消すところまで。
 
 ## 6. エラーが出たら (逆引き)
 
@@ -93,6 +96,7 @@ godot --headless --path . --export-release "Web" build/web/index.html
 | `gmorn_build_scenes/profiles の ... が見つからない` | Project Settings の Profiles から消えたファイルを外す |
 | `例外にした行が見つからない` | 例外にした行が書き換わった。新しい行を確かめて、例外の `code` を直すか例外を消す |
 | `ルートシーン ... が見つからない` / `root_scenes が空` | プロファイルの `root_scenes` を直す |
+| `export_presets.cfg.gmorn_build_scenes_backup が残っている` | 前の書き出しが途中で止まった。バックアップと `export_presets.cfg` を見比べて戻し、バックアップを消す |
 
 ## 7. 例外は1行ずつ、中身まで一致したときだけ許す
 
@@ -102,7 +106,7 @@ godot --headless --path . --export-release "Web" build/web/index.html
 
 ## 8. 制限と、保証しないこと
 
-- **スクリプト (`.gd`) は閉包の外でも書き出しに入る。** Godot 4.7 はスクリプトを書き出しプラグインに渡さず別の経路で書き出すため、このアドオンでは外せない。外れるのはシーン・リソース・画像・音声・JSON などのファイル。
+- **閉包の外のスクリプト (`.gd`) を外せるのは、preflight に書き出しまで任せたときだけ。** Editor の Export ダイアログや `godot --export-*` で直接書き出すと入る (5 章)。
 - 検査は GDScript を1行ずつ文字の並びで照合する。変数に入れたパスや、別の関数へ渡して読むパスは、読み込む呼び出しのある行でしか見つからない。任意のコードを解析できるわけではない。
 - `class_name` は名前の一致で拾う。使っていない同名の語でも、そのスクリプトが閉包に入る。
 - 成果物を消す処理を確かめたのは pack の書き出し (`--export-pack`) だけ。実行ファイル・Web の書き出しと、Editor の Export ダイアログからの書き出しでは確かめていない。
@@ -119,7 +123,7 @@ godot --headless --path . --export-release "Web" build/web/index.html
 一時フォルダーに合成プロジェクトを2つ組んで回す。
 
 - **A**: 単体テストと書き出しを確かめる。参照の連鎖、互いに preload し合うスクリプト、2つのルートが共有する素材、収録外の除外、欠けた参照、禁止した読み込み、例外の照合を扱う。
-- **B**: アドオンを `addons/vendor/build_scenes` に置き、main scene・autoload・`class_name`・シェーダーの `#include`・生のテキスト・収録外のレベルがある構成を扱う。書き出した pack だけで起動するところまで確かめる。
+- **B**: アドオンを `addons/vendor/build_scenes` に置き、main scene・autoload・`class_name` と継承・シェーダーの `#include`・生のテキスト・収録外のレベルと未使用のスクリプトがある構成を扱う。preflight で書き出した pack から未使用のスクリプトが外れ、pack だけで起動するところまで確かめる。
 
 `tests/` には `.gdignore` があるので、取り込んだ先の Godot はこのフォルダーを読まない。
 
