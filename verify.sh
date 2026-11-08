@@ -114,6 +114,9 @@ grep -q "missing_profile.tres が見つからない" "$a/preflight.log" || fail 
 mv "$a/project.godot.bak" "$a/project.godot"
 
 export_through_preflight "$a" Demo "$root/a.pck"
+# 出力先のフォルダーが無ければ preflight が作る (Godot はフォルダーが無いと書き出しに失敗する)。
+export_through_preflight "$a" Demo "$root/new/folder/a.pck"
+[ -s "$root/new/folder/a.pck" ] || fail "A: 無いフォルダーへの書き出しの成果物が無い"
 [ -s "$root/a.pck" ] || fail "A: 検査を通る書き出しの成果物が無い"
 cat > "$root/check_a.gd" <<'CHECK'
 extends SceneTree
