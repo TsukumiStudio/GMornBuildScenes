@@ -58,6 +58,11 @@ func _export(preset: String, mode: String, path: String, scripts: PackedStringAr
 	_write(PRESETS, excluded)
 	print("GMornBuildScenes: 閉包の外のスクリプト %d 本を外して書き出す" % scripts.size())
 	var output: Array = []
+	# Godot は出力先のフォルダーが無いと書き出しに失敗する。
+	var target := path if not path.is_empty() else str(_preset_value(preset, "export_path"))
+	if not target.is_empty():
+		var absolute := target if target.is_absolute_path() else ProjectSettings.globalize_path("res://").path_join(target)
+		DirAccess.make_dir_recursive_absolute(absolute.get_base_dir())
 	var arguments := PackedStringArray(["--headless", "--path", ProjectSettings.globalize_path("res://"), mode, preset])
 	if not path.is_empty():
 		arguments.append(path)
@@ -104,12 +109,19 @@ static func _write(path: String, text: String) -> void:
 	file.store_string(text)
 
 func _preset_features(name: String) -> PackedStringArray:
+	var value: Variant = _preset_value(name, "custom_features")
+	if value == null:
+		printerr("GMornBuildScenes: preset %s が無い" % name)
+		return PackedStringArray()
+	return str(value).split(",", false)
+
+## export_presets.cfg の preset name の key。preset が読めなければ null。
+func _preset_value(name: String, key: String) -> Variant:
 	var presets := ConfigFile.new()
 	if presets.load(PRESETS) != OK: # build_scenes: allow エディタの道具 (書き出し設定)
 		printerr("GMornBuildScenes: %s を読めない" % PRESETS)
-		return PackedStringArray()
+		return null
 	for section: String in presets.get_sections():
 		if presets.get_value(section, "name", "") == name:
-			return str(presets.get_value(section, "custom_features", "")).split(",", false)
-	printerr("GMornBuildScenes: preset %s が無い" % name)
-	return PackedStringArray()
+			return presets.get_value(section, key, "")
+	return null
