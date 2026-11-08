@@ -44,7 +44,7 @@ static func for_export(features: PackedStringArray) -> Dictionary:
 	var matched := BuildScenes.matching(features)
 	if matched.size() != 1:
 		var names := ", ".join(PackedStringArray(matched.map(func(profile: Resource) -> String: return profile.resource_path)))
-		result.errors.append("機能タグ %s に当たるプロファイルが %s" % [features, "無い" if matched.is_empty() else "複数ある: " + names])
+		result.errors.append("機能タグ %s に当たるプロファイルが%s" % [features, "無い" if matched.is_empty() else "複数ある: " + names])
 	if not result.errors.is_empty():
 		return result
 	var closure := preload("build_closure.gd").new().build(matched[0])
