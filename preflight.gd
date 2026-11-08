@@ -16,7 +16,7 @@ func _initialize() -> void:
 	for message: String in result.errors:
 		printerr("GMornBuildScenes: " + message)
 	if result.errors.is_empty():
-		print("GMornBuildScenes preflight: %s %d ファイル" % [result.profile.resource_path if result.profile else "profile なし", result.files.size()])
+		print("GMornBuildScenes preflight: %s %d ファイル" % [result.profile.resource_path if result.profile else "プロファイルなし", result.files.size()])
 	quit(0 if result.errors.is_empty() else 1)
 
 func _preset_features(name: String) -> PackedStringArray:

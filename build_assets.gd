@@ -5,7 +5,7 @@ extends RefCounted
 
 ## path → [Resource, 持っている BuildDependencies の数]
 static var _held := {}
-## エディタの道具 (シーン生成器など) だけが立てる。持っていない素材を path で読む。ゲームの実行時は立てない。
+## エディタの道具 (シーン生成器など) だけが立てる。持っていない素材もパスで読む。ゲームの実行時は立てない。
 static var tool_loading := false
 
 static func hold(resources: Array) -> void:

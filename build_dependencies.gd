@@ -1,7 +1,7 @@
 @tool
 extends Node
 ## 画面に出さないが実行時に使う素材を、型付きの参照としてシーンに持たせる。
-## 書き出しはこの参照を依存として辿る。実行時は build_assets.gd がこの素材を path で引く。
+## 書き出しはこの参照を依存として辿る。実行時は build_assets.gd がこの素材をパスで引く。
 const BuildAssets := preload("build_assets.gd")
 
 @export var resources: Array[Resource] = []:
